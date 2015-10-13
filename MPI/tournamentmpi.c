@@ -32,8 +32,8 @@ void tournament_barrier_init()
   MPI_Comm_size(MPI_COMM_WORLD,&P);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
   int rounds = (int)(log(P)/log(2));
-  printf("Rounds is %d\n", rounds);
-  record = (record_t*)malloc(sizeof(record_t));
+//  printf("Rounds is %d\n", rounds);
+  record = (record_t*) calloc(rounds+1,sizeof(record_t));
   int power_of_round;
 
   for(k=0;k<=rounds;k++)
@@ -141,20 +141,29 @@ void tournament_barrier_finish()
 int main(int argc, char **argv)
 {
   int my_id, my_dst, my_src, num_processes;
-  int i;
+  int i,j,k;
  
   MPI_Init(&argc, &argv);
 
   tournament_barrier_init();
 
-  for(i=0;i<5;i++)
+  for(k=0;k<1;k++)
   {
     tournament_barrier();
+    for(i=0;i<10000;i++)
+      for(j=0;j<10000;j++);
     tournament_barrier();
+    for(i=0;i<10000;i++)
+      for(j=0;j<10000;j++);
     tournament_barrier();
+    for(i=0;i<10000;i++)
+      for(j=0;j<10000;j++);
     tournament_barrier();
+    for(i=0;i<10000;i++)
+      for(j=0;j<10000;j++);
   }
   
+ tournament_barrier_finish();
 
   MPI_Finalize();
   return 0;
