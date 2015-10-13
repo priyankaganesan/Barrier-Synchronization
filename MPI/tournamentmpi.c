@@ -142,12 +142,19 @@ int main(int argc, char **argv)
 {
   int my_id, my_dst, my_src, num_processes;
   int i,j,k;
- 
+  if (argc == 2){
+        if (sscanf (argv[2], "%d", &N)!=1)
+          printf ("N - not an integer\n");
+  }
+  
+  struct timeval tv1, tv2;
+  double total_time;
   MPI_Init(&argc, &argv);
 
   tournament_barrier_init();
-
-  for(k=0;k<1;k++)
+  //TODO: Need to check process id?
+  gettimeofday(&tv1, NULL);
+  for(k=0;k<N;k++)
   {
     tournament_barrier();
     for(i=0;i<10000;i++)
@@ -162,9 +169,17 @@ int main(int argc, char **argv)
     for(i=0;i<10000;i++)
       for(j=0;j<10000;j++);
   }
+  gettimeofday(&tv2, NULL);
+
+  total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
+    printf("\nSUMMARY:\nNumber of processes: %d\n Total run-time for %d "
+            "loops with 5 barriers per loop: %fs\n"
+            "The average time per barrier: %fus\n",
+            P, N, total_time/1000000, (double)(total_time/(N*5)));
   
  tournament_barrier_finish();
 
   MPI_Finalize();
+
   return 0;
 }
