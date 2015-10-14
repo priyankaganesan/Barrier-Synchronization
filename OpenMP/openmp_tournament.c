@@ -144,7 +144,7 @@ int main(int argc, char* argv[])
 	#pragma omp parallel num_threads(P) shared (players, tv1, tv2) firstprivate(pid_sense, N)
 	{
 		int i;
-		gettimeofday(&tv1, NULL);
+		gettimeofday(&tv1, NULL);//TODO: outside pragma?
 		for(i=0;i<N;i++)
 		{
 			printf("Before first barrier\n");

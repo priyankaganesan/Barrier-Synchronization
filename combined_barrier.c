@@ -1,9 +1,9 @@
+#include <omp.h>
 #include <stdio.h>
-#include "mpi.h"
+#include <stdbool.h>
 #include <stdlib.h>
 #include <math.h>
 #include <sys/time.h>
-#include <stdbool.h>
 
 #define DROPOUT 4
 #define WINNER 0
@@ -11,7 +11,7 @@
 #define BYE 2
 #define CHAMPION 3
 
-typedef struct 
+typedef struct
 {
   int role;
   int opponent;
@@ -24,7 +24,19 @@ typedef struct
 record_t* record;
 int P,N;
 int rank;
+
+int startcount;
 bool globalsense = true;
+bool *localSense;
+
+void SenseReversalBarrier_Init()
+{
+	int i, startcount = P;
+	localSense = (bool*) malloc(sizeof(bool)*(P));
+	for (i = 0; i < P; ++i) 
+		localSense[i] = true;
+	globalSense = true;
+}
 
 void tournament_barrier_init()
 {
@@ -76,6 +88,12 @@ void tournament_barrier_init()
   }
 }
 
+void centralized_tournament_init()
+{
+	SenseReversalBarrier_Init();
+	tournament_barrier_init();
+}
+
 void tournament_barrier()
 {
   int round = 0;
@@ -85,7 +103,7 @@ void tournament_barrier()
   while(flag)
   {
     round=round+1;
-    printf("Processor %d reached barrier in round %d\n", rank,round);
+    printf("Processor %d reached mpi barrier in round %d\n", rank,round);
     switch(record[round].role)
     {
       case WINNER:
@@ -130,59 +148,76 @@ void tournament_barrier()
   printf("Processor %d finished barrier\n",rank);
 }
 
-void tournament_barrier_finish()
+//Gets the current count and decrements it. Also returns the current count
+int FetchAndDecrementCount()
+{ 
+  int myCount;
+  #pragma omp critical
+  {
+    myCount = startcount;
+    startcount--;
+  }
+  return myCount;
+}
+
+void combined_barrier()
 {
-  free(record);
+	int thread_num = omp_get_thread_num();
+	localSense[thread_num] = !localSense[thread_num]; // Toggle private sense variable
+	if (FetchAndDecrementCount() == 1)
+	{ 
+		startcount = P;
+		printf("%d",globalSense = localSense[thread_num]);
+	}
+	else
+	{
+		while (globalSense != localSense[thread_num]) { } // Spin
+	}
+	tournament_barrier();
+
 }
 
 int main(int argc, char **argv)
 {
-  int i,j,k;
-  int ret_val = MPI_Init(&argc, &argv);
-  if (ret_val != MPI_SUCCESS)
-  {
-      printf("Failure initializing MPI\n");
-      MPI_Abort(MPI_COMM_WORLD, ret_val);
-  }
-  if (argc == 2){
-        if (sscanf (argv[2], "%d", &N)!=1)
-          printf ("N - not an integer\n");
-  }
-  else
-    N = 1000;
-  
-  struct timeval tv1, tv2;
-  double total_time;
-  // MPI_Init(&argc, &argv);
-
-  tournament_barrier_init();
-  //TODO: Need to check process id?
-  gettimeofday(&tv1, NULL);
-  for(k=0;k<N;k++)
-  {
-    tournament_barrier();
-    for(i=0;i<10000;i++)
-      for(j=0;j<10000;j++);
-    tournament_barrier();
-    for(i=0;i<10000;i++)
-      for(j=0;j<10000;j++);
-    tournament_barrier();
-    for(i=0;i<10000;i++)
-      for(j=0;j<10000;j++);
-    tournament_barrier();
-    for(i=0;i<10000;i++)
-      for(j=0;j<10000;j++);
-    tournament_barrier();
-  }
-  gettimeofday(&tv2, NULL);
-
+	int thread_num = -1;
+	struct timeval tv1, tv2;
+	double total_time;
+	int ret_val = MPI_Init(&argc, &argv);
+	if (ret_val != MPI_SUCCESS)
+	{
+	    printf("Failure initializing MPI\n");
+	    MPI_Abort(MPI_COMM_WORLD, ret_val);
+	}
+	if (argc==3){
+		if (sscanf (argv[1], "%d", &P)!=1) printf ("P - not an integer\n");
+		if (sscanf (argv[2], "%d", &N)!=1) printf ("N - not an integer\n");
+	}
+	else {P = 4; N = 1000;}
+	centralized_tournament_init();
+	#pragma omp parallel num_threads(P) shared(tv1, tv2) firstprivate(thread_num, N)
+	{
+		int i;
+		thread_num = omp_get_thread_num();
+		gettimeofday(&tv1, NULL);//TODO: outside pragma?
+		for (i = 0; i < N; ++i)
+		{
+			printf("\nThread %d entered barrier",thread_num);
+			combined_barrier();
+			printf("\nThread %d entered barrier",thread_num);
+			combined_barrier();
+			printf("\nThread %d entered barrier",thread_num);
+			combined_barrier();
+			printf("\nThread %d entered barrier",thread_num);
+			combined_barrier();
+			printf("\nThread %d entered barrier",thread_num);
+			combined_barrier();
+		}
+		gettimeofday(&tv2, NULL);
+	}
   total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
-    printf("\nSUMMARY:\nNumber of processes: %d\n Total run-time for %d "
+  printf("\nSUMMARY:\nTotal run-time for %d "
             "loops with 5 barriers per loop: %fs\n"
             "The average time per barrier: %fus\n",
-            P, N, total_time/1000000, (double)(total_time/(N*5)));
-  
- tournament_barrier_finish();
-  MPI_Finalize();
+            N, total_time/1000000, (double)(total_time/(N*5)));
   return 0;
 }

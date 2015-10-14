@@ -12,7 +12,6 @@ int P, N;
 
 int FetchAndDecrementCount();
 
-
 void SenseReversalBarrier_Init()
 {
   localSense = (bool*) malloc(sizeof(bool)*(P));
@@ -20,9 +19,7 @@ void SenseReversalBarrier_Init()
   for (i = 0; i < P; ++i) 
     localSense[i] = true;
   globalSense = true;
-
 }
-
 
 void SenseReversalBarrier(int thread_num) 
 {
@@ -42,7 +39,6 @@ void SenseReversalBarrier(int thread_num)
 //Gets the current count and decrements it. Also returns the current count
 int FetchAndDecrementCount()
 { 
-
   int myCount;
   #pragma omp critical
   {
@@ -50,7 +46,6 @@ int FetchAndDecrementCount()
     startcount--;
   }
   return myCount;
-
 }
 
 
@@ -66,13 +61,15 @@ int main(int argc, char **argv)
   double total_time;
   SenseReversalBarrier_Init();
 
-  #pragma omp parallel num_threads(P) firstprivate(thread_num) firstprivate(N)
+  #pragma omp parallel num_threads(P) shared(tv1, tv2) firstprivate(thread_num, N)
   {
     int i;
     thread_num = omp_get_thread_num();
-    gettimeofday(&tv1, NULL);
+    gettimeofday(&tv1, NULL);//TODO: outside pragma?
     for (i = 0; i < N; ++i)
     {
+      printf("\nThread %d entered barrier",thread_num);
+      SenseReversalBarrier(thread_num);
       printf("\nThread %d entered barrier",thread_num);
       SenseReversalBarrier(thread_num);
       printf("\nThread %d entered barrier",thread_num);
