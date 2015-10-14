@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <sys/time.h>
+#include "mpi.h"
 
 #define DROPOUT 4
 #define WINNER 0
@@ -26,7 +27,7 @@ int P,N;
 int rank;
 
 int startcount;
-bool globalsense = true;
+bool globalSense = 1;
 bool *localSense;
 
 void SenseReversalBarrier_Init()
