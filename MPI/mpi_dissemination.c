@@ -1,3 +1,8 @@
+/*
+ * To compile: mpicc mpi_dissemination.c -o mpi_dissemination
+ * To run: mpiexec -n 4 mpi_dissemination
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -5,57 +10,93 @@
 #include <stdbool.h>
 #include "mpi.h"
 
-int P = 4;
-typedef struct flags{
-  bool myflags[2][log2(P)];
-  bool *partnerflags[2][log2(P)];
-}flags_t;
+
+int * partnerflag;
+int * receiveflag;
+int P;
+int rounds;
+int rank;
 
 void dissemination_barrier_init()
 {
-  int rank;
+  
   MPI_Comm_size(MPI_COMM_WORLD, &P);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  flags_t node_i;//TODO: Does this have to be dynamically allocated?
-  flags_t* localflags;
-  localflags = &node_i;
+  rounds = ceil(log2(P));
+  partnerflag = malloc(sizeof(int)*rounds);
+  receiveflag = malloc(sizeof(int)*rounds);
 
-  //Initializing myflags
-  for (i = 0;i<2;i++){
-    for (j = 0; j< log2(P);j++){
-      localflags->myflags[i][j]=false;
+
+  int i,j;
+  for(i=0;i<rounds;i++)
+  {
+    partnerflag[i]=(rank+(1<<i))%P;
+    receiveflag[i]=(rank-(1<<i))%P;
+    if(receiveflag[i]<0)
+      receiveflag[i]=receiveflag[i]+P;
+/*
+    if(rank==0)
+    {
+      printf("%d\n", partnerflag[i]);
+      printf("%d\n", receiveflag[i]);
     }
+*/
   }
-
-  //Initializing partnerflags
-  
 }
 
 void dissemination_barrier(bool *sense)
 {
   // Be careful of deadlock when using blocking sends and receives!
-  MPI_Send(&my_msg, 2, MPI_INT, my_dst, tag, MPI_COMM_WORLD);
-  MPI_Recv(&my_msg, 2, MPI_INT, my_src, tag, MPI_COMM_WORLD, &mpi_result);
+  int send_buffer=1;
+  int receive_buffer;
+  MPI_Status Status;
+  int i;
+  for(i=0;i<rounds;i++)
+  {
+    MPI_Send(&send_buffer, 1, MPI_INT, partnerflag[i], i, MPI_COMM_WORLD);
+    printf("Processor %d sent message to processor %d\n",rank,partnerflag[i]);
+    MPI_Recv(&receive_buffer, 1, MPI_INT, receiveflag[i], i, MPI_COMM_WORLD, &Status);
+    printf("Processor %d received message from processor %d\n",rank,receiveflag[i]);
+  }
+  //MPI_Recv(&my_msg, 2, MPI_INT, my_src, tag, MPI_COMM_WORLD, &mpi_result);
+}
+
+void dissemination_barrier_finish()
+{
+  free(partnerflag);
+  free(receiveflag);  
 }
 
 int main (int argc, char ** argv)
 {
-  MPI_Status mpi_result;
+  
 
   MPI_Init(&argc, &argv);
   bool pid_sense = true;
   int parity = 0;
+  int myrank;
+  int N=1;
   dissemination_barrier_init();
-  int i;
+  int i,j,k;
+  MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+
   for(i=0;i<N;i++)
   {
     dissemination_barrier(&pid_sense);
+    printf("Barrier reached by %d\n", myrank);
     dissemination_barrier(&pid_sense);
+    printf("Barrier reached by %d\n", myrank);
     dissemination_barrier(&pid_sense);
+    printf("Barrier reached by %d\n", myrank);
     dissemination_barrier(&pid_sense);
+    printf("Barrier reached by %d\n", myrank);
     dissemination_barrier(&pid_sense);
-  } 
+    printf("Barrier reached by %d\n", myrank);
+  }
+
+
+  dissemination_barrier_finish();
   MPI_Finalize();
   return 0;
 }

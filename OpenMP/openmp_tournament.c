@@ -1,3 +1,8 @@
+/*
+ * To compile: gcc -o openmp_tournament openmp_tournament.c -lm -fopenmp
+ * To run: ./openmp_tournament
+  */
+
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -22,9 +27,8 @@ int P, N;
 
 void barrier_init()
 {
-	printf("In barrier init\n");
 	int i, k;
-	int rounds = (int)(log2(P));
+	int rounds = (ceil(log(P)/log(2)));
 	players = (record_t**)malloc(P * sizeof(record_t*));
 	for(i = 0; i < P; i++)
 	{
@@ -32,10 +36,8 @@ void barrier_init()
 	}
 	for(i = 0; i < P; i++)
 	{
-		printf("init processor i %d\n", i);
 		for(k=0;k<=rounds;k++)
 		{
-			printf("init round k %d\n", k);
 			//Initializing flag
 			players[i][k].flag = 0;
 			
@@ -53,73 +55,65 @@ void barrier_init()
 					if (((i + (1<<(k-1))) < P) && ((1<<k) < P)){
                     	players[i][k].role = WINNER;
 						players[i][k].opponent = i+(1<<(k-1));
-					} else if ((i + (1<<(k-1))) >= P){
-						players[i][k].role = BYE;
-						players[i][k].opponent = -1;
 					}
 				}
 				else if ((i%(1<<k)) == (1<<(k-1))){
 					players[i][k].role = LOSER;
 					players[i][k].opponent = i-(1<<(k-1));
 				}
+				else {
+						players[i][k].role = BYE;
+						players[i][k].opponent = -1;
+					}
 			}
-			printf("Player role %d\n", players[i][k].role );
-			printf(" opponent %d\n", players[i][k].opponent );
-			printf("flag %d\n", players[i][k].flag );
 		}
 	}
 }
 
-void tournament_barrier(int *pid_sense)
+void tournament_barrier(int *pid_sense, int barrier)
 {
-	printf("In barrier by thread %d\n", omp_get_thread_num());
-	int i = 0;
-	int flag = 0;
+	int rounds = (ceil(log(P)/log(2)));
+	int round = 1;
 	int vpid = omp_get_thread_num();
-	//Arrival
-	while (flag)
-	{
-		i += 1;
-		printf("Processor %d reached barrier in round %d\n", vpid, i);
-		switch (players[vpid][i].role)
-		{
-			case WINNER:
-				while (players[vpid][i].flag == *pid_sense);
-			case LOSER:
-				players[players[vpid][i].opponent][i].flag = *pid_sense;
-				break;
-			case BYE: 
-				break;
-			case CHAMPION:
-				while (players[vpid][i].flag == *pid_sense);
-				players[players[vpid][i].opponent][i].flag = *pid_sense;
-				break;
-			// case DROPOUT:
-			// 	break;
-		}
-	}
+	int k;
+	// printf ("Thread %d, barrier %d\n", vpid, barrier);
 
-	//Wakeup
-	flag = 1;
-	while (flag)
+	//Arrival tree
+	while(1)
 	{
-		i -= 1;
-		switch (players[vpid][i].role)
-		{
-			case WINNER:
-				players[players[vpid][i].opponent][i].flag = *pid_sense;
-			case LOSER:
-				break;
-			case BYE:
-				break;
-			case CHAMPION:
-				break;
-			case DROPOUT:
-				flag = 0;
-				break;
+		if (players[vpid][round].role == LOSER){
+			players[players[vpid][round].opponent][round].flag = *pid_sense;
+			while (players[vpid][round].flag != *pid_sense);
+			break;
 		}
+		else if (players[vpid][round].role == WINNER){
+			while (players[vpid][round].flag != *pid_sense);
+		}
+		else if (players[vpid][round].role == CHAMPION){
+			while (players[vpid][round].flag != *pid_sense);
+			players[players[vpid][round].opponent][round].flag = *pid_sense;
+			break;
+		}
+		else if (players[vpid][round].role == BYE){
+			break;
+		}
+		round += 1;
+		if (round > rounds)
+			break;
 	}
-	*pid_sense = 1-*pid_sense;	
+	//Wakeup tree
+	while(1)
+	{
+		if (round == -1)
+			break;
+		round -= 1;
+		if (players[vpid][round].role == WINNER){
+			players[players[vpid][round].opponent][round].flag = *pid_sense;
+		}
+		else if (players[vpid][round].role == DROPOUT)
+			break;
+	}
+	*pid_sense = !*pid_sense;
 }
 
 int main(int argc, char* argv[])
@@ -132,31 +126,27 @@ int main(int argc, char* argv[])
     }
     else{
     	//Number of processors
-		P = 8;
+		P = 4;
 		//Number of loops
-		N = 4;
+		N = 5;
     }
     struct timeval tv1, tv2;
-    double total_time
+    double total_time;
 	int pid_sense = 1;
-	printf("In main\n");
 	barrier_init();
-	#pragma omp parallel num_threads(P) shared (players, tv1, tv2) firstprivate(pid_sense, N)
+	omp_set_num_threads(P);
+	gettimeofday(&tv1, NULL);
+	#pragma omp parallel shared (players, tv1, tv2) firstprivate(pid_sense, N)
 	{
 		int i;
-		gettimeofday(&tv1, NULL);//TODO: outside pragma?
 		for(i=0;i<N;i++)
 		{
-			printf("Before first barrier\n");
-			tournament_barrier(&pid_sense);
-			printf("Before second barrier\n");
-			tournament_barrier(&pid_sense);
-			tournament_barrier(&pid_sense);
-			tournament_barrier(&pid_sense);
-			tournament_barrier(&pid_sense);
-		}	
-		gettimeofday(&tv2, NULL);
+			// printf("==============BARRIER %d=================\n", i);
+			tournament_barrier(&pid_sense, i);
+		}
+		// printf("Barriers executed\n");	
 	}
+	gettimeofday(&tv2, NULL);
 	total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
     printf("\nSUMMARY:\nTotal run-time for %d "
             "loops with 5 barriers per loop: %fs\n"
