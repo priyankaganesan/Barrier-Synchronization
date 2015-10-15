@@ -1,7 +1,9 @@
 /*
+ * TOURNAMENT BARRIER: OPENMP
+ * To show correct functionality of barrier: Uncomment lines 142 and 145
  * To compile: gcc -o openmp_tournament openmp_tournament.c -lm -fopenmp
- * To run: ./openmp_tournament
-  */
+ * To run: ./openmp_tournament [num_threads num_barriers]
+ */
 
 #include <stdio.h>
 #include <math.h>
@@ -38,13 +40,14 @@ void barrier_init()
 	{
 		for(k=0;k<=rounds;k++)
 		{
-			//Initializing flag
+			//Initializing
+			players[i][k].role = BYE;
+			players[i][k].opponent = -1;
 			players[i][k].flag = 0;
 			
 			//Initializing role and opponent
 			if (k==0){
 				players[i][k].role = DROPOUT;
-				players[i][k].opponent = -1;
 			}
 			else if (k>0){
 				if (i == 0 && (1<<k)>=P){
@@ -56,27 +59,25 @@ void barrier_init()
                     	players[i][k].role = WINNER;
 						players[i][k].opponent = i+(1<<(k-1));
 					}
+					else if ((i + (1<<(k-1))) >= P){
+						players[i][k].role = BYE;
+					}
 				}
 				else if ((i%(1<<k)) == (1<<(k-1))){
 					players[i][k].role = LOSER;
 					players[i][k].opponent = i-(1<<(k-1));
 				}
-				else {
-						players[i][k].role = BYE;
-						players[i][k].opponent = -1;
-					}
 			}
 		}
 	}
 }
 
-void tournament_barrier(int *pid_sense, int barrier)
+void tournament_barrier(int *pid_sense)
 {
 	int rounds = (ceil(log(P)/log(2)));
 	int round = 1;
 	int vpid = omp_get_thread_num();
 	int k;
-	// printf ("Thread %d, barrier %d\n", vpid, barrier);
 
 	//Arrival tree
 	while(1)
@@ -92,9 +93,6 @@ void tournament_barrier(int *pid_sense, int barrier)
 		else if (players[vpid][round].role == CHAMPION){
 			while (players[vpid][round].flag != *pid_sense);
 			players[players[vpid][round].opponent][round].flag = *pid_sense;
-			break;
-		}
-		else if (players[vpid][round].role == BYE){
 			break;
 		}
 		round += 1;
@@ -136,13 +134,17 @@ int main(int argc, char* argv[])
 	barrier_init();
 	omp_set_num_threads(P);
 	gettimeofday(&tv1, NULL);
-	#pragma omp parallel shared (players, tv1, tv2) firstprivate(pid_sense, N)
+	#pragma omp parallel shared (players,N) firstprivate(pid_sense)
 	{
 		int i;
 		for(i=0;i<N;i++)
 		{
 			// printf("==============BARRIER %d=================\n", i);
-			tournament_barrier(&pid_sense, i);
+			tournament_barrier(&pid_sense);
+			tournament_barrier(&pid_sense);
+			tournament_barrier(&pid_sense);
+			tournament_barrier(&pid_sense);
+			tournament_barrier(&pid_sense);
 		}
 		// printf("Barriers executed\n");	
 	}
