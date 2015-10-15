@@ -1,6 +1,6 @@
 /*
  * TOURNAMENT BARRIER: OPENMP
- * To show correct functionality of barrier: Uncomment lines 142 and 145
+ * To show correct functionality of barrier: Uncomment lines 142 and 149
  * To compile: gcc -o openmp_tournament openmp_tournament.c -lm -fopenmp
  * To run: ./openmp_tournament [num_threads num_barriers]
  */
