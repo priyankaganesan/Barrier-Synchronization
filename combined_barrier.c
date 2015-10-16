@@ -3,8 +3,8 @@
  * OpenMP: Centralized sense reversal
  * MPI: Tournament
  * To show correct functionality of barrier: Uncomment line 182
- * To compile: mpicc -o combined_barrier combined_barrier.c -lm -fopenmp
- * To run: ./combined_barrier [num_threads num_barriers]
+ * To compile:  
+ * To run: mpiexec combined_barrier [num_threads num_barriers]
  */
 
 #include <omp.h>
@@ -41,12 +41,12 @@ bool *localSense;
 
 void SenseReversalBarrier_Init()
 {
-	int i;
+  int i;
   startcount = T;
-	localSense = (bool*) malloc(sizeof(bool)*(T));
-	for (i = 0; i < T; ++i) 
-		localSense[i] = true;
-	globalSense = true;
+  localSense = (bool*) malloc(sizeof(bool)*(T));
+  for (i = 0; i < T; ++i) 
+    localSense[i] = true;
+  globalSense = true;
 }
 
 void tournament_barrier_init()
@@ -103,8 +103,8 @@ void tournament_barrier_init()
 
 void centralized_tournament_init()
 {
-	SenseReversalBarrier_Init();
-	tournament_barrier_init();
+  SenseReversalBarrier_Init();
+  tournament_barrier_init();
 }
 
 void tournament_barrier(int barrier)
@@ -178,48 +178,46 @@ int FetchAndDecrementCount()
 void combined_barrier(int barrier)
 {
   int j, myCount;
-	int thread_num = omp_get_thread_num();
-	// printf("Thread %d, rank %d, Entering combined_barrier %d\n", thread_num, rank, barrier);
+  int thread_num = omp_get_thread_num();
+  // printf("Thread %d, rank %d, Entering combined_barrier %d\n", thread_num, rank, barrier);
   localSense[thread_num] = !localSense[thread_num]; // Toggle private sense variable
   if (FetchAndDecrementCount() == 1)
   {
-		startcount = T;
-		globalSense = 1 - globalSense;
-	}
-	else
-	{
-		while (globalSense != localSense[thread_num]); // Spin
-	}
-	if(thread_num == 0){
+    startcount = T;
+    globalSense = 1 - globalSense;
+  }
+  else
+  {
+    while (globalSense != localSense[thread_num]); // Spin
+  }
+  if(thread_num == 0){
     tournament_barrier(barrier);
   }
 }
 
 int main(int argc, char **argv)
 {
-	struct timeval tv1, tv2;
-	double total_time;
-	int ret_val = MPI_Init(&argc, &argv);
-	if (ret_val != MPI_SUCCESS)
-	{
-	    printf("Failure initializing MPI\n");
-	    MPI_Abort(MPI_COMM_WORLD, ret_val);
-	}
-	if (argc==3){
-		if (sscanf (argv[1], "%d", &T)!=1) printf ("T - not an integer\n");
-		if (sscanf (argv[2], "%d", &N)!=1) printf ("N - not an integer\n");
-	}
-	else {T = 3; N = 2;}
-	centralized_tournament_init();
+  struct timeval tv1, tv2;
+  double total_time;
+  int ret_val = MPI_Init(&argc, &argv);
+  if (ret_val != MPI_SUCCESS)
+  {
+      printf("Failure initializing MPI\n");
+      MPI_Abort(MPI_COMM_WORLD, ret_val);
+  }
+  if (argc==3){
+    if (sscanf (argv[1], "%d", &T)!=1) printf ("T - not an integer\n");
+    if (sscanf (argv[2], "%d", &N)!=1) printf ("N - not an integer\n");
+  }
+  else {T = 3; N = 2;}
+  centralized_tournament_init();
   if (rank == 0)
     gettimeofday(&tv1, NULL);
-	#pragma omp parallel num_threads(T) shared(record, N)
-	{
-		int i;
-		for (i = 0; i < N; ++i)
-		{
-      // printf("==============BARRIER %d=================\n", i);
-			combined_barrier(i);
+  #pragma omp parallel num_threads(T) shared(record, N)
+  {
+    int i;
+    for (i = 0; i < N; ++i)
+    {
       // printf("==============BARRIER %d=================\n", i);
       combined_barrier(i);
       // printf("==============BARRIER %d=================\n", i);
@@ -228,8 +226,10 @@ int main(int argc, char **argv)
       combined_barrier(i);
       // printf("==============BARRIER %d=================\n", i);
       combined_barrier(i);
-		}
-	}
+      // printf("==============BARRIER %d=================\n", i);
+      combined_barrier(i);
+    }
+  }
   if (rank == 0){
     gettimeofday(&tv2, NULL);
     total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
