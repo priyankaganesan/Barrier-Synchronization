@@ -2,9 +2,9 @@
  * COMBINED OPENMP-MPI BARRIER
  * OpenMP: Centralized sense reversal
  * MPI: Tournament
- * To show correct functionality of barrier: Uncomment lines 142 and 149
+ * To show correct functionality of barrier: Uncomment line 182
  * To compile: mpicc -o combined_barrier combined_barrier.c -lm -fopenmp
- * To run: ./openmp_tournament [num_threads num_barriers]
+ * To run: ./combined_barrier [num_threads num_barriers]
  */
 
 #include <omp.h>
@@ -179,7 +179,7 @@ void combined_barrier(int barrier)
 {
   int j, myCount;
 	int thread_num = omp_get_thread_num();
-	printf("Thread %d, rank %d, Entering combined_barrier %d\n", thread_num, rank, barrier);
+	// printf("Thread %d, rank %d, Entering combined_barrier %d\n", thread_num, rank, barrier);
   localSense[thread_num] = !localSense[thread_num]; // Toggle private sense variable
   if (FetchAndDecrementCount() == 1)
   {
@@ -211,31 +211,33 @@ int main(int argc, char **argv)
 	}
 	else {T = 3; N = 2;}
 	centralized_tournament_init();
-  gettimeofday(&tv1, NULL);
+  if (rank == 0)
+    gettimeofday(&tv1, NULL);
 	#pragma omp parallel num_threads(T) shared(record, N)
 	{
 		int i;
-		// thread_num = omp_get_thread_num();
 		for (i = 0; i < N; ++i)
 		{
-      printf("==============BARRIER %d=================\n", i);
+      // printf("==============BARRIER %d=================\n", i);
 			combined_barrier(i);
-      printf("==============BARRIER %d=================\n", i);
+      // printf("==============BARRIER %d=================\n", i);
       combined_barrier(i);
-      printf("==============BARRIER %d=================\n", i);
+      // printf("==============BARRIER %d=================\n", i);
       combined_barrier(i);
-      printf("==============BARRIER %d=================\n", i);
+      // printf("==============BARRIER %d=================\n", i);
       combined_barrier(i);
-      printf("==============BARRIER %d=================\n", i);
+      // printf("==============BARRIER %d=================\n", i);
       combined_barrier(i);
 		}
 	}
-  gettimeofday(&tv2, NULL);
-  total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
-  printf("\nSUMMARY:\nTotal run-time for %d "
-            "loops with 5 barriers per loop: %fs\n"
-            "The average time per barrier: %fus\n",
-            N, total_time/1000000, (double)(total_time/(N*5)));
+  if (rank == 0){
+    gettimeofday(&tv2, NULL);
+    total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
+    printf("\nSUMMARY:\nTotal run-time for %d "
+              "loops with 5 barriers per loop: %fs\n"
+              "The average time per barrier: %fus\n",
+              N, total_time/1000000, (double)(total_time/(N*5)));
+  }
   free(record); 
   MPI_Finalize();
   return 0;

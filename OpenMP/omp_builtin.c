@@ -1,8 +1,8 @@
 /*
  * BUILT IN BARRIER: OPENMP
- * To show correct functionality of barrier: Uncomment lines 142 and 145
- * To compile: gcc -o openmp_tournament openmp_tournament.c -lm -fopenmp
- * To run: ./openmp_tournament [num_threads num_barriers]
+ * To show correct functionality of barrier: Uncomment printf in main
+ * To compile: gcc -o omp_builtin omp_builtin.c -lm -fopenmp
+ * To run: ./omp_builtin [num_threads num_barriers]
  */
 
 #include <stdio.h>
@@ -43,8 +43,7 @@ int main(int argc, char* argv[])
 			#pragma omp barrier
 			#pragma omp barrier
 			#pragma omp barrier
-		}
-		// printf("Barriers executed\n");	
+		}	
 	}
 	gettimeofday(&tv2, NULL);
 	total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;

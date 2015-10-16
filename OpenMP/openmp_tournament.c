@@ -1,6 +1,6 @@
 /*
  * TOURNAMENT BARRIER: OPENMP
- * To show correct functionality of barrier: Uncomment lines 142 and 149
+ * To show correct functionality of barrier: Uncomment line 142
  * To compile: gcc -o openmp_tournament openmp_tournament.c -lm -fopenmp
  * To run: ./openmp_tournament [num_threads num_barriers]
  */
@@ -41,7 +41,7 @@ void barrier_init()
 		for(k=0;k<=rounds;k++)
 		{
 			//Initializing
-			players[i][k].role = BYE;
+			players[i][k].role = -1;
 			players[i][k].opponent = -1;
 			players[i][k].flag = 0;
 			
@@ -145,8 +145,7 @@ int main(int argc, char* argv[])
 			tournament_barrier(&pid_sense);
 			tournament_barrier(&pid_sense);
 			tournament_barrier(&pid_sense);
-		}
-		// printf("Barriers executed\n");	
+		}	
 	}
 	gettimeofday(&tv2, NULL);
 	total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
