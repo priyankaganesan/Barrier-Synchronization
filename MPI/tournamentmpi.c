@@ -4,6 +4,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define DROPOUT 4
 #define WINNER 0
@@ -41,6 +42,8 @@ void tournament_barrier_init()
     //Initializing flag
     record[k].flag = false;
     record[k].send_buffer=1;
+    record[k].opponent=-1;
+    record[k].role=-1;
     power_of_round=1<<(k-1);
       
     //Initializing role
@@ -80,12 +83,17 @@ void tournament_barrier()
 {
   int round = 0;
   int flag=1;
+  int myrank;
+  MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
   
   //arrival
   while(flag)
   {
     round=round+1;
-    //printf("Processor %d reached barrier in round %d\n", rank,round);
+    if(round==1)
+    {
+//      printf("Processor %d reached barrier in round %d\n", myrank,round);
+    }
     switch(record[round].role)
     {
       case WINNER:
@@ -104,6 +112,8 @@ void tournament_barrier()
       case BYE:
         continue;
       case DROPOUT:
+        continue;
+      default:
         continue;
     }
   }
@@ -124,10 +134,12 @@ void tournament_barrier()
         continue;
       case DROPOUT:
         flag=0;
-        break;        
+        break;
+      default:
+        continue;        
     }
   }
-  //printf("Processor %d finished barrier\n",rank);
+//  printf("Processor %d finished barrier\n",rank);
 }
 
 void tournament_barrier_finish()
@@ -137,53 +149,48 @@ void tournament_barrier_finish()
 
 int main(int argc, char **argv)
 {
+  int my_id, my_dst, my_src, num_processes;
   int i,j,k;
-  int ret_val = MPI_Init(&argc, &argv);
-  if (ret_val != MPI_SUCCESS)
-  {
-      printf("Failure initializing MPI\n");
-      MPI_Abort(MPI_COMM_WORLD, ret_val);
-  }
-  if (argc == 2){
-        if (sscanf (argv[2], "%d", &N)!=1)
-          printf ("N - not an integer\n");
-  }
-  else
-    N = 5;
+  int test;
+  char ch;
+  MPI_Init(&argc, &argv);
+  int count;
+  int myrank;
+  struct timeval tv;
+  double curr_time_s;
+  double curr_time_us;
   
-  struct timeval tv1, tv2;
-  double total_time;
-
   tournament_barrier_init();
-  if (rank == 0 ){
-	gettimeofday(&tv1, NULL);
-  }
-  for(k=0;k<N;k++)
+  MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+  for(k=0;k<1;k++)
   {
-	printf ("================LOOP %d ===========================\n",k);
-	printf ("Before barrier 1\n");
+    fflush(stdout);
+    gettimeofday(&tv, NULL);
+    curr_time_s=(double) tv.tv_usec + (double) tv.tv_sec*1000000;
+    printf("Barrier %d reached by %d at time %f\n", count++, myrank,curr_time_s);
     tournament_barrier();
-	printf ("Before barrier 2\n");
+
+    fflush(stdout);
+    gettimeofday(&tv, NULL);
+    curr_time_s=(double) tv.tv_usec + (double) tv.tv_sec*1000000;
+    printf("Barrier %d reached by %d at time %f\n", count++, myrank,curr_time_s);
     tournament_barrier();
-	printf ("Before barrier 3\n");
+    
+    fflush(stdout);
+    gettimeofday(&tv, NULL);
+    curr_time_s=(double) tv.tv_usec + (double) tv.tv_sec*1000000;
+    printf("Barrier %d reached by %d at time %f\n", count++, myrank,curr_time_s);
     tournament_barrier();
-	printf ("Before barrier 4\n");
+  
+    fflush(stdout);
+    gettimeofday(&tv, NULL);
+    curr_time_s=(double) tv.tv_usec + (double) tv.tv_sec*1000000;
+    printf("Barrier %d reached by %d at time %f\n", count++, myrank,curr_time_s);
     tournament_barrier();
-	printf ("Before barrier 5\n");
-    tournament_barrier();
-  }
-  if (rank == 0){
-	gettimeofday(&tv2, NULL);
   }
   
- tournament_barrier_finish();
+  tournament_barrier_finish();
+
   MPI_Finalize();
-  if (rank == 0){
-	total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
-  	  printf("\nSUMMARY:\nNumber of processes: %d\n Total run-time for %d "
-            "loops with 5 barriers per loop: %fs\n"
-            "The average time per barrier: %fus\n",
-            P, N, total_time/1000000, (double)(total_time/(N*5)));
-  }
   return 0;
 }
