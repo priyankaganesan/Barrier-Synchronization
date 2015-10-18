@@ -3,7 +3,7 @@
  * OpenMP: Centralized sense reversal
  * MPI: Tournament
  * To show correct functionality of barrier: Uncomment line 182
- * To compile:  
+ * To compile:  mpicc -o combined_barrier combined_barrier.c -lm -fopenmp
  * To run: mpiexec combined_barrier [num_threads num_barriers]
  */
 
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
     if (sscanf (argv[1], "%d", &T)!=1) printf ("T - not an integer\n");
     if (sscanf (argv[2], "%d", &N)!=1) printf ("N - not an integer\n");
   }
-  else {T = 3; N = 2;}
+  else {T = 3; N = 1000;}
   centralized_tournament_init();
   if (rank == 0)
     gettimeofday(&tv1, NULL);
@@ -233,10 +233,13 @@ int main(int argc, char **argv)
   if (rank == 0){
     gettimeofday(&tv2, NULL);
     total_time = (double) (tv2.tv_usec - tv1.tv_usec) + (double) (tv2.tv_sec - tv1.tv_sec)*1000000;
-    printf("\nSUMMARY:\nTotal run-time for %d "
+    
+    printf("\nSUMMARY:\nNumber of processes: %d"
+              "\nNumber of threads: %d"
+              "\nTotal run-time for %d"
               "loops with 5 barriers per loop: %fs\n"
               "The average time per barrier: %fus\n",
-              N, total_time/1000000, (double)(total_time/(N*5)));
+              P, T, N, total_time/1000000, (double)(total_time/(N*5)));
   }
   free(record); 
   MPI_Finalize();

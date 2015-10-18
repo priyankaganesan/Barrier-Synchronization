@@ -10,17 +10,17 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#define nthreads 4
 
 bool globalSense;
 bool *localSense;
-int startcount=nthreads;
+int startcount;
 int P, N;
 
 int FetchAndDecrementCount();
 
 void SenseReversalBarrier_Init()
 {
+  startcount = P;
   localSense = (bool*) malloc(sizeof(bool)*(P));
   int i;
   for (i = 0; i < P; ++i) 
